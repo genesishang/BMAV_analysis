@@ -31,7 +31,8 @@ def get_y_axis(x, data, num_resp):
             # print('The max number of possible correct was', total)
             accuracy = (int(total_correct)/total)
             y_axis.append(accuracy*100)
-            # print('Your accuracy for azimuth', item, 'was', accuracy*100, '%') # response accuracy 
+            print('Your accuracy for azimuth', item, 'was', accuracy*100, '%') # response accuracy 
+            print()
     return y_axis
         # plt.plot(x, y_congruent, 'o--')
 
@@ -118,6 +119,7 @@ def extract_min(file, interp):
 
     print('Minimum x:', min_x)
     print('Minimum y:',min_y)
+    print()
     return (min_x, min_y)
 
         
@@ -172,93 +174,6 @@ def add_moving_averages(x, y):
     return (new_x, new_y)
 
 """END OF HELPER FUNCTIONS"""
-    
-# """"SINGLE PLOT VIEW"""
-# def single_result(file):
-#     data = pd.read_csv(file+'.csv')
-#     plt.title(file + ' results', fontsize=10)
-#     plt.ylabel("Percentage of Correct Responses", fontsize=10)
-#     plt.xlabel("Azimuth", fontsize=10)
-#     congruency_considered = "trial.congruent" in data.columns #if conggruency changed / considered
-
-#     """X AXIS VALUES - AZIMUTH"""
-#     if congruency_considered:
-#         y_congruent = []
-#         y_incongruent = []
-
-#     else:
-#          y_axis = []
-
-#     x = [] #x values for plotting
-#     y = [1,2,3,4,5,6,7,8,9,10]
-#     #for percent
-
-#     #get vals for x
-
-#     azimuth = data['walker.azimuth'].unique()
-#     for item in azimuth:
-#         if item not in x:
-#             x.append(item)
-#     x = sorted(x, reverse=True) #sort by ascension
-
-#     """Y AXIS VALUES - RESPONSE ACCURACY"""
-
-
-#     plt.ylim(top=150)
-#     plt.ylim(bottom=0)
-    
-#     if congruency_considered: 
-#         congruent_vals = data.loc[data['trial.congruent'] == 1] #only look at congruent trials to collect this list first
-#         incongruent_vals = data.loc[data['trial.congruent'] == 0]
-
-#         num_resp_congruent = get_num_resp(congruent_vals, 'walker.azimuth')
-#         num_resp_incongruent = get_num_resp(incongruent_vals, 'walker.azimuth')
-
-
-#         y_congruent = get_y_axis(x, congruent_vals, num_resp_congruent)
-#         y_incongruent = get_y_axis(x, incongruent_vals, num_resp_incongruent)
-
-#         plt.plot(x, y_congruent, 'o--', label='congruent')
-#         plt.plot(x, y_incongruent, 'o--', label='congruent')
-
-#         x_new = np.linspace(-45, 45, 50)
-
-#         new_x, new_y_congruent = add_moving_averages(x, y_congruent)
-#         new_y_incongruent = add_moving_averages(x,y_incongruent)[1]
-
-#         f_congruent = interp1d(new_x, new_y_congruent, kind='quadratic', assume_sorted = True)
-#         f_incongruent = interp1d(new_x, new_y_incongruent, kind='quadratic',assume_sorted = True)
-
-#         y_interp_congruent = [f_congruent(val) for val in x_new]
-#         y_interp_incongruent = [f_incongruent(val) for val in x_new]
-
-#         plt.plot(x_new, y_interp_congruent, '-', label='congruent interpolation')
-#         plt.plot(x_new, y_interp_incongruent, '-', label='incongruent interpolation')
-
-#     else:
-#         num_resp = data['walker.azimuth'].value_counts() # num responses gathered per azimuth
-#         y_axis = get_y_axis(x, data, num_resp)
-#         plt.plot(x, y_axis, 'o--')
-
-#         x_new = np.linspace(-45, 45, 50)
-#         new_x, new_y = add_moving_averages(x, y_axis)
-
-#         f_interp = interp1d(new_x, new_y, kind='quadratic', assume_sorted = True)
-#         y_interp = [f_interp(val) for val in x_new]
-
-#         plt.plot(x_new, y_interp, label='interpolation')
-#     plt.legend()
-
-#     plt.xticks(x, x)
-#     plt.xticks(fontsize=6)
-#     plt.yticks(fontsize=6)
-
-#     # plt.savefig(file+'_figure.png')
-#     # plt.save('all_results.png')
-#     plt.show()
-
-        
-
 
 """TO DISPLAY MULTIPLE TRIALS"""
 
@@ -366,7 +281,6 @@ def all_results(filenames, sample_num=50, audio_file=False, audio_format=False, 
             extract_min(filenames[i], interp)
 
             #FOR SPLINE INTERPOLATION
-            s=calc_smooth_amt(x)
             interp = spline_interp(x, y_axis, sample_num)
             plt.plot(interp[0], interp[1], '-', label='congruent spline interpolation')
 
@@ -387,6 +301,34 @@ def all_results(filenames, sample_num=50, audio_file=False, audio_format=False, 
     if audio_file:
         if not audio_format:
             audio_plots(filenames[-1], save_figure)
+        else:
+            avg_y = avg_av(x, filenames[0], filenames[-1], num_resp)
+            plt.plot(x, avg_y, 'o--', alpha=.5, label='Average AV results')
+
+            #FOR POLYNOMIAL INTERPOLATION
+            interp = poly_interp(x, avg_y, sample_num)
+            plt.plot(interp[0], interp[1], label='polynomial interpolation')
+
+            print('Polynomial Interpolation Minimums:')
+            extract_min(filenames[i], interp)
+
+            #FOR SPLINE INTERPOLATION
+            interp = spline_interp(x, avg_y, sample_num)
+            plt.plot(interp[0], interp[1], '-', label='congruent spline interpolation')
+
+            print('B-Spline Interpolation Minimums:')
+            extract_min(filenames[i], interp)
+            plt.title(filenames[i] + 'Average AV results', fontsize=10)
+
+            plt.ylabel("Percentage of Correct Responses", fontsize=10)
+            plt.xlabel("Azimuth", fontsize=10)
+            plt.legend()
+            plt.xticks(x, x)
+            plt.xticks(fontsize=6)
+            plt.yticks(fontsize=6)
+
+            plt.show()
+            
    
 
 def audio_plots(file, save_figure):
@@ -415,7 +357,7 @@ def audio_plots(file, save_figure):
             accuracy = (total_correct/total)
             y_axis.append(accuracy)
             # print(y_axis)
-            # print('Your accuracy for direction', item, 'was', accuracy*100, '%') # response accuracy 
+            print('Your accuracy for direction', item, 'was', accuracy*100, '%') # response accuracy 
 
     plt.bar(['L', 'R'], y_axis) #then plot
     plt.xticks((0,1))
@@ -428,6 +370,17 @@ def audio_plots(file, save_figure):
     plt.show()
         # plt.plot(
 
+def avg_av(x, afile, vfile, numresp):
+        #first get y axis/percentages for visual file
+        adata = pd.read_csv(afile+'.csv')
+        vdata = pd.read_csv(vfile+'.csv')
+
+        vfile_percentages = get_y_axis(x, vdata, numresp)
+        afile_percentages = get_y_axis(x, adata, numresp)
+        
+        mean_percentages = (np.array(vfile_percentages) + np.array(afile_percentages))/2
+        return mean_percentages
+        
 
 
 
@@ -437,47 +390,26 @@ def audio_plots(file, save_figure):
 # filenames = ['1V_S1200_CC', '2AV_C_S_S1200_CC', '3AV_C_OS_S1200_CC', '4AV_I_S_S1200_CC', '5AV_I_OS_S1200_CC', '6A_S1200_CC']
 # filenames2 = ['1V_I1200_SL', '2AV_C_S_I1200_SL', '3AV_C_OS_I1200_SL', '4AV_I_S_I1200_SL', '5AV_I_OS_I1200_SL', '6A_I1200_SL']
 # filenames3 = ['1V_S1200_SL', '2AV_C_S_S1200_SL', '3AV_C_OS_S1200_SL', '4AV_I_S_S1200_SL', '5AV_I_OS_S1200_SL', '6A_S1200_SL']
-filenames4 =['3AV_C_OS_I1200_LLM_run1', '3AV_C_OS_I1200_LLM_run2', '3AV_C_OS_I1200_LLM_run3','4AV_I_S_I1200_LLM', '5AV_I_OS_I1200_LLM', '6A_I1200_LLM']
+# filenames4 =['3AV_C_OS_I1200_LLM_run1', '3AV_C_OS_I1200_LLM_run2', '3AV_C_OS_I1200_LLM_run3','4AV_I_S_I1200_LLM', '5AV_I_OS_I1200_LLM', '6A_I1200_LLM']
 # filenames4 = ['1V_I1200_SL', '2AV_C_S_I1200_SL', '3AV_C_OS_I1200_SL', '4AV_I_S_I1200_SL', '5AV_I_OS_I1200_SL', '6A_I1200_SL']
-
-
+# filenames11 = ['Anshra_Control_blur_1_run1', 'Anshra_Control_blur_1_run3', 'Anshra_Control_blur_2_run1', 'Anshra_Control_blur_2_run3', 'Anshra_Control_blur_3_run2', 'Anshra_Control_blur_3_run4', 'Anshra_Control_blur_4_run1', 'Anshra_Control_blur_4_run3', 'Anshra_Control_blur_5_run2', 'Anshra_Control_blur_5_run4', 'Anshra_Control_blur_6_run5']
+# filenames12 = ['Kushagra_control_blur_1_run1', 'Kushagra_control_blur_1_run3', 'Kushagra_control_blur_2_run1', 'Kushagra_control_blur_2_run3', 'Kushagra_control_blur_3_run2', 'Kushagra_control_blur_3_run4', 'Kushagra_control_blur_4_run1', 'Kushagra_control_blur_4_run3', 'Kushagra_control_blur_5_run2', 'Kushagra_control_blur_5_run4', 'Kushagra_control_blur_6_run5']
 # filenames5 = ['1V_JL', '2AV_JL', '3A_JL']
 # filenames6 = ['1V_SL', '2AV_SL', '3A_SL']
-# filenames7 = ['1V_CC', '2AV_CC', '3A_CC']
+# filenames7 = ['1V_CC', '2AV_CC', '3AV_CC']
 
-# # filenames = ['1V_Followup3_BM', '2AV_Followup3_BM', '3AV_Followup3_BM', '4AV_Followup3_BM', '5AV_Followup3_BM', '6A_Followup3_BM']
-# filenames8 = ['Z_Condition1', 'Z_Condition2', 'Z_Condition3', 'Z_Condition4', 'Z_Condition5', 'Z_Condition6',]
+# filenames = ['1V_Followup3_BM', '2AV_Followup3_BM', '3AV_Followup3_BM', '4AV_Followup3_BM', '5AV_Followup3_BM', '6A_Followup3_BM']
+# # filenames8 = ['Z_Condition1', 'Z_Condition2', 'Z_Condition3', 'Z_Condition4', 'Z_Condition5', 'Z_Condition6',]
+# # filenames9 = ['K_Condition1_run1', 'K_Condition1_run3', 'K_Condition2_run1', 'K_Condition2_run3', 'K_Condition3_run2', 'K_Condition3_run4', 'K_Condition4_run1', 'K_Condition4_run3', 'K_Condition5_run2', 'K_Condition5_run4', 'K_Condition6_run5']
+filenames10 = ['Alshifa_Control_blur_1_run1', 'Alshifa_Control_blur_1_run3', 'Alshifa_Control_blur_2_run1', 'Alshifa_Control_blur_2_run3', 'Alshifa_Control_blur_3_run2', 'Alshifa_Control_blur_3_run4', 'Alshifa_Control_blur_4_run1', 'Alshifa_Control_blur_4_run3', 'Alshifa_Control_blur_5_run2', 'Alshifa_Control_blur_5_run4', 'Alshifa_Control_blur_6_run5',]
 
+# # filenames = ['1V_Followup3_BM']
 
-# filenames = ['1V_Followup3_BM']
-
-# all_results(filenames, sample_num=100, audio_file=True, save_figure=True)
+all_results(filenames10, sample_num=50, audio_file=True, audio_format=True)
 # all_results(filenames2, sample_num=100, audio_file=True, save_figure=True)
 # all_results(filenames3, sample_num=100, audio_file=True, save_figure=True)
-all_results(filenames4, sample_num=50, audio_file=True, save_figure=True)
+# all_results(filenames10, sample_num=50, audio_file=False, save_figure=True)
 # all_results(filenames5, sample_num=100, audio_file=True, save_figure=True)
 # all_results(filenames6, sample_num=100, audio_file=True, save_figure=True)
 # all_results(filenames7, sample_num=100, audio_file=True, save_figure=True)
 # all_results(filenames8, sample_num=100, audio_file=True, audio_format=True, save_figure=True)
-
-
-
-
-# all_results(filenames2)
-# all_results(filenames3)
-# all_results(filenames6)
-
-# single_result(filenames[2])
-# audio_plots('6A_S1200_CC')
-# data = pd.read_csv(filenames[2]+'.csv')
-# new_data = data.loc[data['trial.congruent'] == 1, 'trial.congruent']
-# print(new_data)
-
-# num_resp = data['walker.azimuth'].value_counts() # num responses gathered per azimuth
-# print(num_resp)
-# print(num_resp[-11.2])
-
-#TESTING MOVING AVERAGES
-# x=[1,2,3,4,5]
-# y=[10,20,30,40,50]
-# print(add_moving_averages(x,y))
