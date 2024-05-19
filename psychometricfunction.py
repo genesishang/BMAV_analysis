@@ -101,7 +101,7 @@ def poly_interp(x, y, sample_num):
 
     return (x_new, y_interp) #to plot vals separately
 
-def extract_min(file, interp):
+def extract_min(condition, interp):
     """
     Extracts minimum based on y value interpolation
     args:
@@ -111,14 +111,14 @@ def extract_min(file, interp):
         tuple holding point in which y is the global maximum (x, y)
     """
 
-    print('File', file)
+    print(f'Condition {condition}')
 
     min_i = np.argmin(interp[1])
     min_x = interp[0][min_i]
     min_y = interp[1][min_i]
 
     print('Minimum x:', min_x)
-    print('Minimum y:',min_y)
+    print('Minimum y:', min_y)
     print()
     return (min_x, min_y)
 
@@ -209,10 +209,15 @@ def concat_conditions(organized_files):
 
    
     for filenames in organized_files:
-        df_list = [pd.read_csv(file+'.csv') for file in filenames]
-        concatenated = pd.concat(df_list)
-        concatenated.name = 'Condition ' + str(i)
-        new_file_list.append(concatenated)
+        if len(filenames) == 0:
+            continue
+        if len(filenames)==1:
+            new_file_list.append(pd.read_csv(filenames[0]+'.csv'))
+        else:
+            df_list = [pd.read_csv(file+'.csv') for file in filenames]
+            concatenated = pd.concat(df_list)
+            concatenated.name = 'Condition ' + str(i)
+            new_file_list.append(concatenated)
         i+=1
 
     return new_file_list
@@ -234,6 +239,9 @@ def calc_av(x, adata, vdata, numresp):
 
     mean_percentages = (np.array(vfile_percentages) + np.array(afile_percentages))/2
     return mean_percentages
+
+def get_condition_num(data):
+    return data['trial.condition'].values[0]
 
 
 """END OF HELPER FUNCTIONS"""
@@ -266,10 +274,11 @@ def all_results(filenames_unorganized, sample_num=50, audio_file=False, audio_fo
     #now calculate averages of each list inside filenames_organized so we can flatten to one list
     filenames = concat_conditions(filenames_organized)
 
-    condition = 1 #should stop at 6 if correct... 
-
+     
     for data in filenames: #for each dataframe
-        
+        condition = get_condition_num(data)
+        if condition == 6:
+            continue
         # data = pd.read_csv(filenames[i]+'.csv')
         plt.title(f'Condition {condition} results', fontsize=10)
         plt.ylabel("Percentage of Correct Responses", fontsize=10)
@@ -290,7 +299,6 @@ def all_results(filenames_unorganized, sample_num=50, audio_file=False, audio_fo
         for item in azimuth:
             if item not in x:
                 x.append(item)
-        print('ok')
         x = sorted(x) #sort by ascension
 
         """Y AXIS VALUES - RESPONSE ACCURACY"""
@@ -324,10 +332,10 @@ def all_results(filenames_unorganized, sample_num=50, audio_file=False, audio_fo
                 plt.plot(interp_incongruent[0], interp_incongruent[1], '-', label='incongruent polynomial interpolation')
 
                 print('Polynomial Interpolation Minimums (Congruent):')
-                extract_min(data, interp_congruent)
+                extract_min(condition, interp_congruent)
 
                 print('Polynomial Interpolation Minimums (Incongruent):')
-                extract_min(data, interp_incongruent)
+                extract_min(condition, interp_incongruent)
 
 
                 # #FOR SPLINE INTERPOLATION
@@ -337,10 +345,10 @@ def all_results(filenames_unorganized, sample_num=50, audio_file=False, audio_fo
                 plt.plot(interp_incongruent[0], interp_incongruent[1], '-', label='incongruent spline interpolation')
 
                 print('B-Spline Interpolation Minimums (Congruent):')
-                extract_min(data, interp_congruent)
+                extract_min(condition, interp_congruent)
 
                 print('B-Spline Interpolation Minimums (Incongruent):')
-                extract_min(data, interp_incongruent)
+                extract_min(condition, interp_incongruent)
             
             else:
                 plt.plot(x, y_congruent, 'o--', linewidth=2.5, label='congruent')
@@ -358,14 +366,14 @@ def all_results(filenames_unorganized, sample_num=50, audio_file=False, audio_fo
                 plt.plot(interp[0], interp[1], label='polynomial interpolation')
 
                 print('Polynomial Interpolation Minimums:')
-                extract_min(data, interp)
+                extract_min(condition, interp)
 
                 #FOR SPLINE INTERPOLATION
                 interp = spline_interp(x, y_axis, sample_num)
                 plt.plot(interp[0], interp[1], '-', label='congruent spline interpolation')
 
                 print('B-Spline Interpolation Minimums:')
-                extract_min(data, interp)
+                extract_min(condition, interp)
             else:
                 plt.plot(x, y_axis, 'o--', linewidth=2.5, label='results')
 
@@ -394,14 +402,14 @@ def all_results(filenames_unorganized, sample_num=50, audio_file=False, audio_fo
                 plt.plot(interp[0], interp[1], label='polynomial interpolation')
 
                 print('Polynomial Interpolation Minimums:')
-                extract_min(filenames[i], interp)
+                extract_min(condition, interp)
 
                 #FOR SPLINE INTERPOLATION
                 interp = spline_interp(x, avg_y, sample_num)
                 plt.plot(interp[0], interp[1], '-', label='congruent spline interpolation')
 
                 print('B-Spline Interpolation Minimums:')
-                extract_min(filenames[i], interp)
+                extract_min(condition, interp)
             else:
                 plt.plot(x, avg_y, 'o--', linewidth=2.5, label='Average AV results')
 
@@ -419,15 +427,14 @@ def all_results(filenames_unorganized, sample_num=50, audio_file=False, audio_fo
             
    
 
-def audio_plots(file, save_figure):
+def audio_plots(data, save_figure):
     """
     Displays audio data formatted in bar graph format. (Direction vs. Percentage Answered Correct)
     args:
         file (str): audio file to be formatted
         save_figure (boolean): =True if want to save figure to device
     """
-    data = pd.read_csv(file+'.csv')
-    plt.title(file + ' results', fontsize=10)
+    plt.title('Condition 6', fontsize=10)
     plt.ylabel("Percentage of Correct Responses", fontsize=10)
     plt.xlabel("Audio Direction", fontsize=10)
 
@@ -458,7 +465,7 @@ def audio_plots(file, save_figure):
     plt.yticks(fontsize=6)
 
     if save_figure:
-        file_name = input("You are currently observing file " + file+ "\nPlease enter desired filename for figure")
+        file_name = input("You are currently observing Condition 6\nPlease enter desired filename for figure")
         plt.savefig(file_name)
 
     plt.show()
@@ -565,7 +572,7 @@ filenames12 = ['Kushagra_control_blur_1_run1', 'Kushagra_control_blur_1_run3', '
 # # filenames9 = ['K_Condition1_run1', 'K_Condition1_run3', 'K_Condition2_run1', 'K_Condition2_run3', 'K_Condition3_run2', 'K_Condition3_run4', 'K_Condition4_run1', 'K_Condition4_run3', 'K_Condition5_run2', 'K_Condition5_run4', 'K_Condition6_run5']
 # filenames10 = ['Alshifa_Control_blur_1_run1', 'Alshifa_Control_blur_1_run3', 'Alshifa_Control_blur_2_run1', 'Alshifa_Control_blur_2_run3', 'Alshifa_Control_blur_3_run2', 'Alshifa_Control_blur_3_run4', 'Alshifa_Control_blur_4_run1', 'Alshifa_Control_blur_4_run3', 'Alshifa_Control_blur_5_run2', 'Alshifa_Control_blur_5_run4', 'Alshifa_Control_blur_6_run5',]
 
-# # filenames = ['1V_Followup3_BM']
+# filenames = ['1V_Followup3_BM']
 # print(len(filenames11))
 all_results(filenames12, sample_num=50, audio_file=True, audio_format=True, interpolate=True, y_axis_100=False)
 # all_results(filenames2, sample_num=100, audio_file=True, save_figure=True)
