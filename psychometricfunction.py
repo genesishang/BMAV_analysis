@@ -3,8 +3,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d, splrep, splev
 
-"""CHANGE FILE NAME TO DESIRED DATA VISUALIZATION WITHOUT .CSV"""
-
 plt.style.use(('seaborn-v0_8'))
 
 """HELPER FUNCTIONS"""
@@ -40,8 +38,8 @@ def get_num_resp(data, column):
     """ 
     gathers total # of responses per azimuth. Used to help calculate accuracies. 
         args:
-            data: Pandas Dataframe of original data
-            column: Column name to retrieve desired data from, in this case 'walker.azimuth' to retrieve 
+            data (pandas df): Pandas Dataframe of original data
+            column (str): Column name to retrieve desired data from, in this case 'walker.azimuth' to retrieve 
             total number of responses for each azimuth.
         returns:
             The number of responses per desired azimuth
@@ -66,7 +64,8 @@ def spline_interp(x, y, sample_num, calc_smooth=True):
     args:
         x (list): azimuth
         y (list): accuracy percentages 
-        calc_smooth (boolean): whether to calculate ideal smoothing amount by default
+        sample_num (int): number of data points to generate with interpolation
+        calc_smooth (boolean): whether to calculate ideal smoothing amount by default. Otherwise, enter desired smoothing amount.
     returns:
         Interpolated new x and y values
     """
@@ -87,6 +86,7 @@ def poly_interp(x, y, sample_num):
     args:
         x (list): azimuth
         y (list): accuracy percentages
+        sample_num (int): number of data points to generate with interpolation
     returns:
         Interpolated new x and y values
     """
@@ -125,7 +125,7 @@ def extract_min(file, interp):
         
 def add_moving_averages(x, y):
     """
-    Used to account for large gap of missing data between angles -45.0 and -22.5, 45.0 and 22.5
+    Calculates data points using averages between angles to account for large gap of missing data
     args:
         x (List): azimuth
         y (List): accuracy percentages
@@ -181,10 +181,16 @@ def add_moving_averages(x, y):
 
 def all_results(filenames, sample_num=50, audio_file=False, audio_format=False, save_figure=False):
     """
-    Displays data formatted in scatterplot with spline and polynomial interpolated lines.
+    Displays data formatted in scatterplot with spline and polynomial interpolated lines. 
+    assumes:
+        -input list is in numerical order (Condition 1 data, condition 2 data,..., condition 6 data)
+        -input list is a list of str with filenames without the '.csv'
+        -Columns for analysis are labelled accordingly: 'walker.azimuth', 'response.responseScore', 'trial.congruent' (if congruency considered, eg. not conditions 1 or 6), 'sound.direction' (if audio_format=False)
     args:
         filenames (List): list of .csv data files to visualize and analyze
-        audio_file (boolean): =True if audio file format works with format of other data, in other words, if the audio file has an azimuth column. Otherwise, formats audio only condition in bar graph.
+        sample_num (int): Number of data points wanted to generate with interpolation. Default = 50
+        audio_file (boolean): =True if audio file present within list of files
+        audio_format (boolean): =True if audio file format works with format of other data, in other words, if the audio file has an azimuth column. Otherwise, formats audio only condition in bar graph.
         save_figure (boolean): =True if want to save figure to device
     """
     plt.ylim(.5,1)
@@ -203,7 +209,7 @@ def all_results(filenames, sample_num=50, audio_file=False, audio_format=False, 
         plt.title(filenames[i] + ' results', fontsize=10)
         plt.ylabel("Percentage of Correct Responses", fontsize=10)
         plt.xlabel("Azimuth", fontsize=10)
-        congruency_considered = "trial.congruent" in data.columns #if conggruency changed / considered
+        congruency_considered = "trial.congruent" in data.columns 
 
         """X AXIS VALUES - AZIMUTH"""
         if congruency_considered:
@@ -214,9 +220,6 @@ def all_results(filenames, sample_num=50, audio_file=False, audio_format=False, 
             y_axis = []
 
         x = [] #x values for plotting
-        #for percent
-
-        #get vals for x
 
         azimuth = data['walker.azimuth'].unique()
         for item in azimuth:
@@ -332,6 +335,12 @@ def all_results(filenames, sample_num=50, audio_file=False, audio_format=False, 
    
 
 def audio_plots(file, save_figure):
+    """
+    Displays audio data formatted in bar graph format. (Direction vs. Percentage Answered Correct)
+    args:
+        file (str): audio file to be formatted
+        save_figure (boolean): =True if want to save figure to device
+    """
     data = pd.read_csv(file+'.csv')
     plt.title(file + ' results', fontsize=10)
     plt.ylabel("Percentage of Correct Responses", fontsize=10)
@@ -366,26 +375,51 @@ def audio_plots(file, save_figure):
     if save_figure:
         file_name = input("You are currently observing file " + file+ "\nPlease enter desired filename for figure")
         plt.savefig(file_name)
-    # plt.save('all_results.png')
+
     plt.show()
-        # plt.plot(
 
 def avg_av(x, afile, vfile, numresp):
-        #first get y axis/percentages for visual file
-        adata = pd.read_csv(afile+'.csv')
-        vdata = pd.read_csv(vfile+'.csv')
+    """
+    Calculates average percentage of answers correct for both audio-only condition 6 and visual-only condition 1 (assuming corresponding conditions are input files)
+    args:
+        file (str): audio file to be formatted
+        save_figure (boolean): =True if want to save figure to device
+    returns:
+        List with new y-axis values representing the averages
+    """
 
-        vfile_percentages = get_y_axis(x, vdata, numresp)
-        afile_percentages = get_y_axis(x, adata, numresp)
-        
-        mean_percentages = (np.array(vfile_percentages) + np.array(afile_percentages))/2
-        return mean_percentages
-        
+    adata = pd.read_csv(afile+'.csv')
+    vdata = pd.read_csv(vfile+'.csv')
 
+    vfile_percentages = get_y_axis(x, vdata, numresp)
+    afile_percentages = get_y_axis(x, adata, numresp)
 
+    mean_percentages = (np.array(vfile_percentages) + np.array(afile_percentages))/2
+    return mean_percentages
 
     
 """PLOTTING DATA"""
+
+"""Examples commented below"""
+# #Plotting data without audio file and 50 sample interpolation
+# #Good for plotting select files, single files, etc.
+# filenames = ['Sample_Condition1Data']
+# all_results(filenames, audio_file=False)
+
+# #plotting data with audio file but file is not formatted with azimuth and 100 sample interpolation
+# filenames = ['Sample_Condition1Data', 'Sample_Condition2Data', 'Sample_Condition3Data', 'Sample_Condition4Data','Sample_Condition5Data', 'Sample_Condition6Data']
+# all_results(filenames, sample_num=100, audio_file=True)
+
+# #plotting data with audio file but file is formatted with azimuth and 60 sample interpolation
+# filenames = ['Sample_Condition1Data', 'Sample_Condition2Data', 'Sample_Condition3Data', 'Sample_Condition4Data','Sample_Condition5Data', 'Sample_Condition6Data']
+# all_results(filenames, audio_file=True, audio_format=True)
+
+# #plotting data with audio file but file is formatted with azimuth and 100 sample interpolation
+# filenames = ['Sample_Condition1Data', 'Sample_Condition2Data', 'Sample_Condition3Data', 'Sample_Condition4Data','Sample_Condition5Data', 'Sample_Condition6Data']
+# all_results(filenames, sample_num=100, audio_file=True, audio_format=True)
+
+
+"""my data plots"""
 
 # filenames = ['1V_S1200_CC', '2AV_C_S_S1200_CC', '3AV_C_OS_S1200_CC', '4AV_I_S_S1200_CC', '5AV_I_OS_S1200_CC', '6A_S1200_CC']
 # filenames2 = ['1V_I1200_SL', '2AV_C_S_I1200_SL', '3AV_C_OS_I1200_SL', '4AV_I_S_I1200_SL', '5AV_I_OS_I1200_SL', '6A_I1200_SL']
