@@ -243,7 +243,7 @@ def calc_av(x, adata, vdata):
 def get_condition_num(data):
     return data['trial.condition'].values[0]
 
-def calc_av_multiple(filenames):
+def calc_av_multiple(filenames, patient_names, save_figure=False):
     """
     Calculates average percentage of answers correct for audio-only condition 6 and visual-only condition 1 
     across multiple samples. 
@@ -251,18 +251,50 @@ def calc_av_multiple(filenames):
         x (list of floats): list of floats that represent the azimuth angles
         filenames (list of list): list of AV filenames per patient for analysis (eg [['condition6_patient1', 'condition1_patient1'], ['condition1_patient2', 'condition6_patient2']])
     """
-    overall_average = np.zeros(shape=len(x))
     x = [-45, -22.5, -11.2, -5.6, -2.8, 2.8, 5.6, 11.2, 22.5, 45]
-
+    overall_average = np.zeros(shape=len(x))
+    
     for sample in filenames:
-        audio_data = pd.read_csv(sample[0]+'.csv')
-        visual_data = pd.read_csv(sample[1]+'.csv')
+        audio_data = sample[1]
+        visual_data = sample[0]
 
         average = calc_av(x, audio_data, visual_data)
 
         overall_average += average
+
+    patients = ''
+    for name in patient_names:
+        patients += name + ', '
+    patients = patients.strip(', ')
+
+    overall_average = overall_average/len(filenames)
+    print(overall_average)
     
-    return overall_average
+    plt.ylim(top=100)
+    plt.ylim(bottom=0)
+    plt.title('Average AV results across ' + patients, fontsize=10)
+    plt.ylabel("Percentage of Correct Responses", fontsize=10)
+    plt.xlabel("Azimuth", fontsize=10)
+
+    plt.plot(x, overall_average, 'o--', linewidth=2.5, label='Average Results')
+    
+    plt.xticks(x, x)
+    plt.xticks(fontsize=6)
+    plt.yticks(fontsize=6)
+
+    if save_figure:
+        file_name = input(f"You are currently observing the average AV results of {patients}\nPlease enter desired filename for figure")
+        plt.savefig(file_name)
+
+    plt.show()
+
+def flatten_data(filenames_unorganized):
+    filenames_organized = collect_conditions(filenames_unorganized)
+    # print(filenames_organized)
+    #now calculate averages of each list inside filenames_organized so we can flatten to one list
+    filenames = concat_conditions(filenames_organized)
+    return filenames
+
 
 """END OF HELPER FUNCTIONS"""
 
@@ -289,11 +321,9 @@ def all_results(filenames_unorganized, sample_num=50, audio_file=False, audio_fo
     plt.ylim(.5,1)
 
     #first flatten all datafiles into 6- so only one file per condition and in numerical order
-    filenames_organized = collect_conditions(filenames_unorganized)
-    print(filenames_organized)
+   
     #now calculate averages of each list inside filenames_organized so we can flatten to one list
-    filenames = concat_conditions(filenames_organized)
-
+    filenames = flatten_data(filenames_unorganized)
     
     for data in filenames: #for each dataframe
         condition = get_condition_num(data)
@@ -522,27 +552,39 @@ def audio_plots(data, save_figure):
 
 """my data plots"""
 
-# filenames = ['1V_S1200_CC', '2AV_C_S_S1200_CC', '3AV_C_OS_S1200_CC', '4AV_I_S_S1200_CC', '5AV_I_OS_S1200_CC', '6A_S1200_CC']
-# filenames2 = ['1V_I1200_SL', '2AV_C_S_I1200_SL', '3AV_C_OS_I1200_SL', '4AV_I_S_I1200_SL', '5AV_I_OS_I1200_SL', '6A_I1200_SL']
-# filenames3 = ['1V_S1200_SL', '2AV_C_S_S1200_SL', '3AV_C_OS_S1200_SL', '4AV_I_S_S1200_SL', '5AV_I_OS_S1200_SL', '6A_S1200_SL']
-# filenames4 =['2AV_C_S_I1200_LLM','3AV_C_OS_I1200_LLM', '4AV_I_S_I1200_LLM', '5AV_I_OS_I1200_LLM', '6A_I1200_LLM']
-# filenames4 = ['1V_I1200_SL', '2AV_C_S_I1200_SL', '3AV_C_OS_I1200_SL', '4AV_I_S_I1200_SL', '5AV_I_OS_I1200_SL', '6A_I1200_SL']
-# filenames11 = ['Anshra_Control_blur_1_run1', 'Anshra_Control_blur_1_run3', 'Anshra_Control_blur_2_run1', 'Anshra_Control_blur_2_run3', 'Anshra_Control_blur_3_run2', 'Anshra_Control_blur_3_run4', 'Anshra_Control_blur_4_run1', 'Anshra_Control_blur_4_run3', 'Anshra_Control_blur_5_run2', 'Anshra_Control_blur_5_run4', 'Anshra_Control_blur_6_run5']
-# filenames12 = ['Kushagra_control_blur_1_run1', 'Kushagra_control_blur_1_run3', 'Kushagra_control_blur_2_run1', 'Kushagra_control_blur_2_run3', 'Kushagra_control_blur_3_run2', 'Kushagra_control_blur_3_run4', 'Kushagra_control_blur_4_run1', 'Kushagra_control_blur_4_run3', 'Kushagra_control_blur_5_run2', 'Kushagra_control_blur_5_run4', 'Kushagra_control_blur_6_run5']
-# filenames5 = ['1V_JL', '2AV_JL', '3A_JL']
-# filenames6 = ['1V_SL', '2AV_SL', '3A_SL']
-# filenames7 = ['1V_CC', '2AV_CC', '3A_CC']
-# filenames12 = ['Arushi_C1', 'Arushi_C2', 'Arushi_C3', 'Arushi_C4', 'Arushi_C5', 'Arushi_C6']
-# filenames13 = ['ritesh_C!', 'ritesh_C2', 'ritesh_C3', 'ritesh_C4', 'ritesh_C5', 'ritesh_C6']
-# filenames13 = ['uday_C1', 'uday_C2', 'uday_C3', 'uday_C4', 'uday_C5', 'uday_C6']
-filenames13 = ['wasiya_C1', 'wasiya_C2', 'wasiya_C3', 'wasiya_C4', 'wasiya_C5', 'wasiya_C6']
+# scramble_cc = ['1V_S1200_CC', '2AV_C_S_S1200_CC', '3AV_C_OS_S1200_CC', '4AV_I_S_S1200_CC', '5AV_I_OS_S1200_CC', '6A_S1200_CC']
+# inversion_sl = ['1V_I1200_SL', '2AV_C_S_I1200_SL', '3AV_C_OS_I1200_SL', '4AV_I_S_I1200_SL', '5AV_I_OS_I1200_SL', '6A_I1200_SL']
+# scramble_sl = ['1V_S1200_SL', '2AV_C_S_S1200_SL', '3AV_C_OS_S1200_SL', '4AV_I_S_S1200_SL', '5AV_I_OS_S1200_SL', '6A_S1200_SL']
+# inversion_llm =['2AV_C_S_I1200_LLM','3AV_C_OS_I1200_LLM', '4AV_I_S_I1200_LLM', '5AV_I_OS_I1200_LLM', '6A_I1200_LLM']
+# inversion_sl = ['1V_I1200_SL', '2AV_C_S_I1200_SL', '3AV_C_OS_I1200_SL', '4AV_I_S_I1200_SL', '5AV_I_OS_I1200_SL', '6A_I1200_SL']
+control_anshra = ['Anshra_Control_blur_1_run1', 'Anshra_Control_blur_1_run3', 'Anshra_Control_blur_2_run1', 'Anshra_Control_blur_2_run3', 'Anshra_Control_blur_3_run2', 'Anshra_Control_blur_3_run4', 'Anshra_Control_blur_4_run1', 'Anshra_Control_blur_4_run3', 'Anshra_Control_blur_5_run2', 'Anshra_Control_blur_5_run4', 'Anshra_Control_blur_6_run5']
+control_kushagra = ['Kushagra_control_blur_1_run1', 'Kushagra_control_blur_1_run3', 'Kushagra_control_blur_2_run1', 'Kushagra_control_blur_2_run3', 'Kushagra_control_blur_3_run2', 'Kushagra_control_blur_3_run4', 'Kushagra_control_blur_4_run1', 'Kushagra_control_blur_4_run3', 'Kushagra_control_blur_5_run2', 'Kushagra_control_blur_5_run4', 'Kushagra_control_blur_6_run5']
+# control_jl = ['1V_JL', '2AV_JL', '3A_JL']
+# control_sl = ['1V_SL', '2AV_SL', '3A_SL']
+# control_cc = ['1V_CC', '2AV_CC', '3A_CC']
+control_arushi = ['Arushi_C1', 'Arushi_C2', 'Arushi_C3', 'Arushi_C4', 'Arushi_C5', 'Arushi_C6']
+control_ritesh = ['ritesh_C!', 'ritesh_C2', 'ritesh_C3', 'ritesh_C4', 'ritesh_C5', 'ritesh_C6']
+control_uday = ['uday_C1', 'uday_C2', 'uday_C3', 'uday_C4', 'uday_C5', 'uday_C6']
+control_wasiya = ['wasiya_C1', 'wasiya_C2', 'wasiya_C3', 'wasiya_C4', 'wasiya_C5', 'wasiya_C6']
 # filenames14
 
 
-# filenames = ['1V_Followup3_BM', '2AV_Followup3_BM', '3AV_Followup3_BM', '4AV_Followup3_BM', '5AV_Followup3_BM', '6A_Followup3_BM']
-# filenames8 = ['Z_Condition1', 'Z_Condition2', 'Z_Condition3', 'Z_Condition4', 'Z_Condition5', 'Z_Condition6',]
-# filenames9 = ['K_Condition1_run1', 'K_Condition1_run3', 'K_Condition2_run1', 'K_Condition2_run3', 'K_Condition3_run2', 'K_Condition3_run4', 'K_Condition4_run1', 'K_Condition4_run3', 'K_Condition5_run2', 'K_Condition5_run4', 'K_Condition6_run5']
-# filenames10 = ['Alshifa_Control_blur_1_run1', 'Alshifa_Control_blur_1_run3', 'Alshifa_Control_blur_2_run1', 'Alshifa_Control_blur_2_run3', 'Alshifa_Control_blur_3_run2', 'Alshifa_Control_blur_3_run4', 'Alshifa_Control_blur_4_run1', 'Alshifa_Control_blur_4_run3', 'Alshifa_Control_blur_5_run2', 'Alshifa_Control_blur_5_run4', 'Alshifa_Control_blur_6_run5',]
+# s_patient = ['1V_Followup3_BM', '2AV_Followup3_BM', '3AV_Followup3_BM', '4AV_Followup3_BM', '5AV_Followup3_BM', '6A_Followup3_BM']
+# z_patient = ['Z_Condition1', 'Z_Condition2', 'Z_Condition3', 'Z_Condition4', 'Z_Condition5', 'Z_Condition6',]
+# k_patient = ['K_Condition1_run1', 'K_Condition1_run3', 'K_Condition2_run1', 'K_Condition2_run3', 'K_Condition3_run2', 'K_Condition3_run4', 'K_Condition4_run1', 'K_Condition4_run3', 'K_Condition5_run2', 'K_Condition5_run4', 'K_Condition6_run5']
+control_alshifa = ['Alshifa_Control_blur_1_run1', 'Alshifa_Control_blur_1_run3', 'Alshifa_Control_blur_2_run1', 'Alshifa_Control_blur_2_run3', 'Alshifa_Control_blur_3_run2', 'Alshifa_Control_blur_3_run4', 'Alshifa_Control_blur_4_run1', 'Alshifa_Control_blur_4_run3', 'Alshifa_Control_blur_5_run2', 'Alshifa_Control_blur_5_run4', 'Alshifa_Control_blur_6_run5',]
 
 
-all_results(filenames13, audio_file=True, audio_format=True, interpolate=False, y_axis_100=True, save_figure=False)
+# all_results(control_wasiya, audio_file=True, audio_format=True, interpolate=False, y_axis_100=True, save_figure=False)
+
+p1 = flatten_data(control_anshra) 
+p2 = flatten_data(control_kushagra) 
+p3 = flatten_data(control_arushi) 
+p4 = flatten_data(control_ritesh) 
+p5 = flatten_data(control_uday) 
+p6 = flatten_data(control_wasiya) 
+p7 = flatten_data(control_alshifa) 
+
+names = ['Anshra', 'Kushagra', 'Arushi', 'Ritesh', 'Uday', 'Wasiya', 'Alshifa']
+
+calc_av_multiple([[p1[0], p1[-1]], [p2[0], p2[-1]], [p3[0], p3[-1]], [p4[0], p4[-1]], [p5[0], p5[-1]], [p6[0], p6[-1]], [p7[0], p7[-1]]], names, save_figure=True)
