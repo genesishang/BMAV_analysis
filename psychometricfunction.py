@@ -6,7 +6,7 @@ from scipy.interpolate import interp1d, splrep, splev
 plt.style.use(('seaborn-v0_8'))
 
 """HELPER FUNCTIONS"""
-def get_y_axis(x, data, num_resp):
+def get_y_axis(x, data):
     """ 
     calculates and gathers accuracy percentages per azimuth.
         args:
@@ -19,13 +19,15 @@ def get_y_axis(x, data, num_resp):
     
     y_axis = [] 
 
+    numresp = get_num_resp(data, 'walker.azimuth')
+
     for item in x: # for each azimuth
             vals = data.loc[data['walker.azimuth']==item, 'response.responseScore'].sum() # gets response score
             # print(item, 'scored', vals) 
             total_correct = vals 
     
             # print(item, 'results in total', total_correct, 'correct responses') # "" add them together to get total responses
-            total = num_resp[item] #total number possible responses
+            total = numresp[item] #total number possible responses
             # print('The max number of possible correct was', total)
             accuracy = (int(total_correct)/total)
             y_axis.append(accuracy*100)
@@ -177,7 +179,7 @@ def add_moving_averages(x, y):
 def collect_conditions(files):
     """
     args:
-        files (list of str): list of all filenames to be processed
+        files (list of str): list of all filenames to be processed. Assumes all csv files are sorted by condition
     """
     unorganized_files = files[:] #copy of filelist names
     organized_files = []
@@ -191,9 +193,9 @@ def collect_conditions(files):
             if i in data['trial.condition'].values:#if this file is corresponding condition
                 this_condition.append(file) #append it to our list
                 unorganized_files.remove(file) #then pop from unorganized_files to prevent looking at it in next iteration
-                print(this_condition)
                 continue
-        organized_files.append(this_condition)
+        else:
+            organized_files.append(this_condition)
     return organized_files #should now be organized as [[condition 1 files], [condition 2 files],...[condition 6 files]]
 
 def concat_conditions(organized_files):
@@ -207,9 +209,8 @@ def concat_conditions(organized_files):
     new_file_list = []
     i = 1
 
-   
     for filenames in organized_files:
-        if len(filenames) == 0:
+        if len(filenames)==0: #no data for this condition
             continue
         if len(filenames)==1:
             new_file_list.append(pd.read_csv(filenames[0]+'.csv'))
@@ -222,8 +223,7 @@ def concat_conditions(organized_files):
 
     return new_file_list
 
-
-def calc_av(x, adata, vdata, numresp):
+def calc_av(x, adata, vdata):
     """
     Calculates average percentage of answers correct for both audio-only condition 6 and visual-only condition 1 (assuming corresponding conditions are input files)
     args:
@@ -234,8 +234,8 @@ def calc_av(x, adata, vdata, numresp):
         List with new y-axis values representing the averages
     """
 
-    vfile_percentages = get_y_axis(x, vdata, numresp)
-    afile_percentages = get_y_axis(x, adata, numresp)
+    vfile_percentages = get_y_axis(x, vdata)
+    afile_percentages = get_y_axis(x, adata)
 
     mean_percentages = (np.array(vfile_percentages) + np.array(afile_percentages))/2
     return mean_percentages
@@ -243,6 +243,26 @@ def calc_av(x, adata, vdata, numresp):
 def get_condition_num(data):
     return data['trial.condition'].values[0]
 
+def calc_av_multiple(filenames):
+    """
+    Calculates average percentage of answers correct for audio-only condition 6 and visual-only condition 1 
+    across multiple samples. 
+    args: 
+        x (list of floats): list of floats that represent the azimuth angles
+        filenames (list of list): list of AV filenames per patient for analysis (eg [['condition6_patient1', 'condition1_patient1'], ['condition1_patient2', 'condition6_patient2']])
+    """
+    overall_average = np.zeros(shape=len(x))
+    x = [-45, -22.5, -11.2, -5.6, -2.8, 2.8, 5.6, 11.2, 22.5, 45]
+
+    for sample in filenames:
+        audio_data = pd.read_csv(sample[0]+'.csv')
+        visual_data = pd.read_csv(sample[1]+'.csv')
+
+        average = calc_av(x, audio_data, visual_data)
+
+        overall_average += average
+    
+    return overall_average
 
 """END OF HELPER FUNCTIONS"""
 
@@ -270,16 +290,16 @@ def all_results(filenames_unorganized, sample_num=50, audio_file=False, audio_fo
 
     #first flatten all datafiles into 6- so only one file per condition and in numerical order
     filenames_organized = collect_conditions(filenames_unorganized)
-
+    print(filenames_organized)
     #now calculate averages of each list inside filenames_organized so we can flatten to one list
     filenames = concat_conditions(filenames_organized)
 
-     
+    
     for data in filenames: #for each dataframe
         condition = get_condition_num(data)
-        if condition == 6:
+        if condition == 6 and audio_format==False:
             continue
-        # data = pd.read_csv(filenames[i]+'.csv')
+
         plt.title(f'Condition {condition} results', fontsize=10)
         plt.ylabel("Percentage of Correct Responses", fontsize=10)
         plt.xlabel("Azimuth", fontsize=10)
@@ -294,7 +314,7 @@ def all_results(filenames_unorganized, sample_num=50, audio_file=False, audio_fo
             y_axis = []
 
         x = [] #x values for plotting
-
+        
         azimuth = data['walker.azimuth'].unique()
         for item in azimuth:
             if item not in x:
@@ -313,12 +333,8 @@ def all_results(filenames_unorganized, sample_num=50, audio_file=False, audio_fo
             congruent_vals = data.loc[data['trial.congruent'] == 1] #only look at congruent trials to collect this list first
             incongruent_vals = data.loc[data['trial.congruent'] == 0]
 
-            num_resp_congruent = get_num_resp(congruent_vals,'walker.azimuth')
-            num_resp_incongruent = get_num_resp(incongruent_vals, 'walker.azimuth')
-
-            y_congruent = get_y_axis(x, congruent_vals, num_resp_congruent)
-            y_incongruent = get_y_axis(x, incongruent_vals, num_resp_incongruent)
-
+            y_congruent = get_y_axis(x, congruent_vals)
+            y_incongruent = get_y_axis(x, incongruent_vals)
 
             if interpolate:
                 plt.plot(x, y_congruent, 'o--', alpha=.5, label='congruent')
@@ -355,8 +371,7 @@ def all_results(filenames_unorganized, sample_num=50, audio_file=False, audio_fo
                 plt.plot(x, y_incongruent, 'o--', linewidth=2.5, label='incongruent')
             
         else:
-            num_resp = data['walker.azimuth'].value_counts() # num responses gathered per azimuth
-            y_axis = get_y_axis(x, data, num_resp)
+            y_axis = get_y_axis(x, data)
 
             if interpolate:
             #FOR POLYNOMIAL INTERPOLATION
@@ -393,7 +408,7 @@ def all_results(filenames_unorganized, sample_num=50, audio_file=False, audio_fo
         if not audio_format:
             audio_plots(filenames[-1], save_figure)
         else:
-            avg_y = calc_av(x, filenames[0], filenames[-1], num_resp)
+            avg_y = calc_av(x, filenames[0], filenames[-1])
 
             if interpolate:
             #FOR POLYNOMIAL INTERPOLATION
@@ -411,6 +426,7 @@ def all_results(filenames_unorganized, sample_num=50, audio_file=False, audio_fo
                 print('B-Spline Interpolation Minimums:')
                 extract_min(condition, interp)
             else:
+                
                 plt.plot(x, avg_y, 'o--', linewidth=2.5, label='Average AV results')
 
             plt.title('Average AV results', fontsize=10)
@@ -422,10 +438,13 @@ def all_results(filenames_unorganized, sample_num=50, audio_file=False, audio_fo
             plt.xticks(fontsize=6)
             plt.yticks(fontsize=6)
 
+            if save_figure:
+                file_name = input(f"You are currently observing the average AV results\nPlease enter desired filename for figure")
+                plt.savefig(file_name)
+
             plt.show()
     
             
-   
 
 def audio_plots(data, save_figure):
     """
@@ -470,59 +489,6 @@ def audio_plots(data, save_figure):
 
     plt.show()
 
-
-# #
-# def calc_avg(condition_files):
-#     """
-#     args:
-#         condition_files (list): list of lists that have filenames sorted by condition to be processed
-#     """
-#     for file in condition_files:
-
-
-# def calc_avg(x, filelist):
-#     """
-    
-#     args:
-#         afile (str): audio file to be formatted
-#         vfile (str): visual file to be formatted
-#         numresp (int): number of responses per azimuth
-#     returns:
-#         List with new y-axis values representing the averages
-#     """
-#     avg_list = []
-
-#     for condition in filelist:
-#         this_condition = np.zeros(len(x))
-#         for filename in condition:
-#             data = pd.read_csv(filename+'.csv')
-#             numresp = get_num_resp(data, 'walker.azimuth')
-#             file_percentages = get_y_axis(x, data, numresp)
-#             this_condition += file_percentages
-#         avg_list.append(this_condition/len(condition))
-
-#     return avg_list
-
-#     mean_percentages = (np.array(vfile_percentages) + np.array(afile_percentages))/2
-#     return mean_percentages
-
-
-# def group_files(data):
-
-
-# vfile_percentages = []
-#     afile_percentages = []
-
-#     for file in afile:
-#         adata = pd.read_csv(file+'.csv')
-#         afile = np.array(get_y_axis(x, adata, numresp))
-#         afile_percentages.append(afile)
-
-#     for file in vfile:
-#         vdata = pd.read_csv(file+'.csv')
-#         vfile = np.array(get_y_axis(x, vdata, numresp))
-#         vfile_percentages.append(vfile)
-
     
 """PLOTTING DATA"""
 
@@ -559,26 +525,24 @@ def audio_plots(data, save_figure):
 # filenames = ['1V_S1200_CC', '2AV_C_S_S1200_CC', '3AV_C_OS_S1200_CC', '4AV_I_S_S1200_CC', '5AV_I_OS_S1200_CC', '6A_S1200_CC']
 # filenames2 = ['1V_I1200_SL', '2AV_C_S_I1200_SL', '3AV_C_OS_I1200_SL', '4AV_I_S_I1200_SL', '5AV_I_OS_I1200_SL', '6A_I1200_SL']
 # filenames3 = ['1V_S1200_SL', '2AV_C_S_S1200_SL', '3AV_C_OS_S1200_SL', '4AV_I_S_S1200_SL', '5AV_I_OS_S1200_SL', '6A_S1200_SL']
-# filenames4 =['3AV_C_OS_I1200_LLM_run1', '3AV_C_OS_I1200_LLM_run2', '3AV_C_OS_I1200_LLM_run3','4AV_I_S_I1200_LLM', '5AV_I_OS_I1200_LLM', '6A_I1200_LLM']
+# filenames4 =['2AV_C_S_I1200_LLM','3AV_C_OS_I1200_LLM', '4AV_I_S_I1200_LLM', '5AV_I_OS_I1200_LLM', '6A_I1200_LLM']
 # filenames4 = ['1V_I1200_SL', '2AV_C_S_I1200_SL', '3AV_C_OS_I1200_SL', '4AV_I_S_I1200_SL', '5AV_I_OS_I1200_SL', '6A_I1200_SL']
 # filenames11 = ['Anshra_Control_blur_1_run1', 'Anshra_Control_blur_1_run3', 'Anshra_Control_blur_2_run1', 'Anshra_Control_blur_2_run3', 'Anshra_Control_blur_3_run2', 'Anshra_Control_blur_3_run4', 'Anshra_Control_blur_4_run1', 'Anshra_Control_blur_4_run3', 'Anshra_Control_blur_5_run2', 'Anshra_Control_blur_5_run4', 'Anshra_Control_blur_6_run5']
-filenames12 = ['Kushagra_control_blur_1_run1', 'Kushagra_control_blur_1_run3', 'Kushagra_control_blur_2_run1', 'Kushagra_control_blur_2_run3', 'Kushagra_control_blur_3_run2', 'Kushagra_control_blur_3_run4', 'Kushagra_control_blur_4_run1', 'Kushagra_control_blur_4_run3', 'Kushagra_control_blur_5_run2', 'Kushagra_control_blur_5_run4', 'Kushagra_control_blur_6_run5']
+# filenames12 = ['Kushagra_control_blur_1_run1', 'Kushagra_control_blur_1_run3', 'Kushagra_control_blur_2_run1', 'Kushagra_control_blur_2_run3', 'Kushagra_control_blur_3_run2', 'Kushagra_control_blur_3_run4', 'Kushagra_control_blur_4_run1', 'Kushagra_control_blur_4_run3', 'Kushagra_control_blur_5_run2', 'Kushagra_control_blur_5_run4', 'Kushagra_control_blur_6_run5']
 # filenames5 = ['1V_JL', '2AV_JL', '3A_JL']
 # filenames6 = ['1V_SL', '2AV_SL', '3A_SL']
-# filenames7 = ['1V_CC', '2AV_CC', '3AV_CC']
+# filenames7 = ['1V_CC', '2AV_CC', '3A_CC']
+# filenames12 = ['Arushi_C1', 'Arushi_C2', 'Arushi_C3', 'Arushi_C4', 'Arushi_C5', 'Arushi_C6']
+# filenames13 = ['ritesh_C!', 'ritesh_C2', 'ritesh_C3', 'ritesh_C4', 'ritesh_C5', 'ritesh_C6']
+# filenames13 = ['uday_C1', 'uday_C2', 'uday_C3', 'uday_C4', 'uday_C5', 'uday_C6']
+filenames13 = ['wasiya_C1', 'wasiya_C2', 'wasiya_C3', 'wasiya_C4', 'wasiya_C5', 'wasiya_C6']
+# filenames14
+
 
 # filenames = ['1V_Followup3_BM', '2AV_Followup3_BM', '3AV_Followup3_BM', '4AV_Followup3_BM', '5AV_Followup3_BM', '6A_Followup3_BM']
-# # filenames8 = ['Z_Condition1', 'Z_Condition2', 'Z_Condition3', 'Z_Condition4', 'Z_Condition5', 'Z_Condition6',]
-# # filenames9 = ['K_Condition1_run1', 'K_Condition1_run3', 'K_Condition2_run1', 'K_Condition2_run3', 'K_Condition3_run2', 'K_Condition3_run4', 'K_Condition4_run1', 'K_Condition4_run3', 'K_Condition5_run2', 'K_Condition5_run4', 'K_Condition6_run5']
+# filenames8 = ['Z_Condition1', 'Z_Condition2', 'Z_Condition3', 'Z_Condition4', 'Z_Condition5', 'Z_Condition6',]
+# filenames9 = ['K_Condition1_run1', 'K_Condition1_run3', 'K_Condition2_run1', 'K_Condition2_run3', 'K_Condition3_run2', 'K_Condition3_run4', 'K_Condition4_run1', 'K_Condition4_run3', 'K_Condition5_run2', 'K_Condition5_run4', 'K_Condition6_run5']
 # filenames10 = ['Alshifa_Control_blur_1_run1', 'Alshifa_Control_blur_1_run3', 'Alshifa_Control_blur_2_run1', 'Alshifa_Control_blur_2_run3', 'Alshifa_Control_blur_3_run2', 'Alshifa_Control_blur_3_run4', 'Alshifa_Control_blur_4_run1', 'Alshifa_Control_blur_4_run3', 'Alshifa_Control_blur_5_run2', 'Alshifa_Control_blur_5_run4', 'Alshifa_Control_blur_6_run5',]
 
-# filenames = ['1V_Followup3_BM']
-# print(len(filenames11))
-all_results(filenames12, sample_num=50, audio_file=True, audio_format=True, interpolate=True, y_axis_100=False)
-# all_results(filenames2, sample_num=100, audio_file=True, save_figure=True)
-# all_results(filenames3, sample_num=100, audio_file=True, save_figure=True)
-# all_results(filenames10, sample_num=50, audio_file=False, save_figure=True)
-# all_results(filenames5, sample_num=100, audio_file=True, save_figure=True)
-# all_results(filenames6, sample_num=100, audio_file=True, save_figure=True)
-# all_results(filenames7, sample_num=100, audio_file=True, save_figure=True)
-# all_results(filenames8, sample_num=100, audio_file=True, audio_format=True, save_figure=True)
+
+all_results(filenames13, audio_file=True, audio_format=True, interpolate=False, y_axis_100=True, save_figure=False)
