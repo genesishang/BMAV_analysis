@@ -10,9 +10,8 @@ def get_y_axis(x, data):
     """ 
     calculates and gathers accuracy percentages per azimuth.
         args:
-            x (List): Azimuth angles measured
+            x (list of floats): Azimuth angles measured
             data (pandas df): Pandas Dataframe of original data
-            num_resp (int): total number of responses 
         Returns:
             List of y values (Accuracies in percentage form)
     """
@@ -41,10 +40,9 @@ def get_num_resp(data, column):
     gathers total # of responses per azimuth. Used to help calculate accuracies. 
         args:
             data (pandas df): Pandas Dataframe of original data
-            column (str): Column name to retrieve desired data from, in this case 'walker.azimuth' to retrieve 
-            total number of responses for each azimuth.
+            column (str): Column name to retrieve desired data from, in this case 'walker.azimuth' to retrieve total number of responses for each azimuth.
         returns:
-            The number of responses per desired azimuth as a series
+            The number of responses per desired azimuth as a pandas series
     """
     return data[column].value_counts()
 
@@ -64,12 +62,12 @@ def spline_interp(x, y, sample_num, calc_smooth=True):
     """
     performs spline interpolation on data
     args:
-        x (list): azimuth
-        y (list): accuracy percentages 
+        x (list of floats): azimuth
+        y (list of floats): accuracy percentages 
         sample_num (int): number of data points to generate with interpolation
         calc_smooth (boolean): whether to calculate ideal smoothing amount by default. Otherwise, enter desired smoothing amount.
     returns:
-        Interpolated new x and y values
+        Interpolated new x and y values using a b-spline 
     """
     if calc_smooth==True:
         smooth_amt = calc_smooth_amt(x)
@@ -86,11 +84,11 @@ def poly_interp(x, y, sample_num):
     """
     performs quadratic interpolation
     args:
-        x (list): azimuth
-        y (list): accuracy percentages
+        x (list of floats): azimuth
+        y (list of floats): accuracy percentages
         sample_num (int): number of data points to generate with interpolation
     returns:
-        Interpolated new x and y values
+        Interpolated new x and y values using a quadratic
     """
     x_new = np.linspace(-11.5, 11.5, sample_num)
 
@@ -107,8 +105,8 @@ def extract_min(condition, interp):
     """
     Extracts minimum based on y value interpolation
     args:
-        file (str): filename
-        interp (tuple): tuple resulting from interpolation functions, thus a tuple representing (new x values, new y values)
+        condition (str): condition being observed
+        interp (tuple): tuple resulting from interpolation functions. Thus a tuple representing (new x values, new y values)
     returns:
         tuple holding point in which y is the global maximum (x, y)
     """
@@ -122,6 +120,7 @@ def extract_min(condition, interp):
     print('Minimum x:', min_x)
     print('Minimum y:', min_y)
     print()
+
     return (min_x, min_y)
 
         
@@ -129,10 +128,10 @@ def add_moving_averages(x, y):
     """
     Calculates data points using averages between angles to account for large gap of missing data
     args:
-        x (List): azimuth
-        y (List): accuracy percentages
+        x (list of floats): azimuth
+        y (list of accuracy percentages): accuracy percentages
     returns:
-        Tuple holding revised list of x and y values. Revised meaning the addition of predicted poinst at angles between existing measured angle data points. 
+        Tuple holding revised list of x and y values. Revised meaning the addition of predicted points at angles between existing measured angle data points. 
     """
     assert len(x)==len(y), print('This data is not valid')
     """return (new x, new y)"""
@@ -178,8 +177,11 @@ def add_moving_averages(x, y):
 
 def collect_conditions(files):
     """
+    Groups and organizes files based on condition tested
     args:
         files (list of str): list of all filenames to be processed. Assumes all csv files are sorted by condition
+    returns:
+        list of list (of pandas df) with files corresponding to the same condition grouped together in numerical order [condition1-condition6]
     """
     unorganized_files = files[:] #copy of filelist names
     organized_files = []
@@ -200,9 +202,9 @@ def collect_conditions(files):
 
 def concat_conditions(organized_files):
     """
-    concatenate dataframes based on condition so we can flatten list to one dimension
+    Concatenates dataframes based on condition so we can flatten list to one dimension
     args:
-        organized_files (list of str): list of list of filenames organized by condition
+        organized_files (list of pandas df): list of list of file dataframes organized by condition
     returns:
         list of dataframes in order of condition 1-6
     """
@@ -227,11 +229,11 @@ def calc_av(x, adata, vdata):
     """
     Calculates average percentage of answers correct for both audio-only condition 6 and visual-only condition 1 (assuming corresponding conditions are input files)
     args:
-        afile (str): audio file to be formatted
-        vfile (str): visual file to be formatted
-        numresp (int): number of responses per azimuth
+        x (list of floats): list of x-axis data (azimuth)
+        adata (df): audio file in dataframe format 
+        vfile (str): visual file in dataframe
     returns:
-        List with new y-axis values representing the averages
+        np array with new y-axis values representing the averages
     """
 
     vfile_percentages = get_y_axis(x, vdata)
@@ -241,21 +243,29 @@ def calc_av(x, adata, vdata):
     return mean_percentages
 
 def get_condition_num(data):
+    """
+    Gets condition tested in current file
+    args:
+        data (df): data in df format
+    returns:
+        int representing condition number"""
     return data['trial.condition'].values[0]
 
-def calc_av_multiple(filenames, patient_names, save_figure=False):
+def calc_av_multiple(filenames, patient_names=[], save_figure=False):
     """
     Calculates average percentage of answers correct for audio-only condition 6 and visual-only condition 1 
     across multiple samples. 
     args: 
-        x (list of floats): list of floats that represent the azimuth angles
-        filenames (list of list): list of AV filenames per patient for analysis (eg [['condition6_patient1', 'condition1_patient1'], ['condition1_patient2', 'condition6_patient2']])
+        filenames (list of list of str): list of AV filenames per patient for analysis (eg [['condition6_patient1', 'condition1_patient1'], ['condition1_patient2', 'condition6_patient2']])
+        patient_names (list of str): list of patient names
+        save_figure (boolean): =True if want to save generated figure to device
     """
+    
     x = [-45, -22.5, -11.2, -5.6, -2.8, 2.8, 5.6, 11.2, 22.5, 45]
     overall_average = np.zeros(shape=len(x))
     
     for sample in filenames:
-        audio_data = sample[1]
+        audio_data = sample[-1]
         visual_data = sample[0]
 
         average = calc_av(x, audio_data, visual_data)
@@ -288,7 +298,55 @@ def calc_av_multiple(filenames, patient_names, save_figure=False):
 
     plt.show()
 
+def calc_average(filenames, test_condition, patient_names, save_figure=False):
+    """
+    Calculates average percentage of answers correct for any condition
+    args: 
+        filenames (list of list of str): list of condition-specfiic filenames per patient for analysis (eg [['condition6_patient1'], ['condition6_patient2']])
+        test_condition (int): condition being observed
+        patient_names (list of str): patient names
+        save_figure (boolean): =True if want to save generated figure to device
+    """
+    x = [-45, -22.5, -11.2, -5.6, -2.8, 2.8, 5.6, 11.2, 22.5, 45]
+    overall_average = np.zeros(shape=len(x))
+    
+    for sample in filenames:
+        data = sample[0]
+        overall_average += get_y_axis(x, data)
+
+    patients = ''
+    for name in patient_names:
+        patients += name + ', '
+    patients = patients.strip(', ')
+
+    overall_average = overall_average/len(filenames)
+    print(overall_average)
+    
+    plt.ylim(top=100)
+    plt.ylim(bottom=0)
+    plt.title(f'Average {test_condition} results across ' + patients, fontsize=10)
+    plt.ylabel("Percentage of Correct Responses", fontsize=10)
+    plt.xlabel("Azimuth", fontsize=10)
+
+    plt.plot(x, overall_average, 'o--', linewidth=2.5, label='Average Results')
+    
+    plt.xticks(x, x)
+    plt.xticks(fontsize=6)
+    plt.yticks(fontsize=6)
+
+    if save_figure:
+        file_name = input(f"You are currently observing condition {test_condition} results of {patients}\nPlease enter desired filename for figure")
+        plt.savefig(file_name)
+
+    plt.show()
+
 def flatten_data(filenames_unorganized):
+    """
+    Flattens list of df organized by condition
+    args:
+        filenames_unorganized (list of list of df): list of list of df organized by condition
+    returns:
+        one dimensional list of df"""
     filenames_organized = collect_conditions(filenames_unorganized)
     # print(filenames_organized)
     #now calculate averages of each list inside filenames_organized so we can flatten to one list
@@ -299,18 +357,17 @@ def flatten_data(filenames_unorganized):
 """END OF HELPER FUNCTIONS"""
 
 """TO DISPLAY MULTIPLE TRIALS"""
-
 """CHANGE FILE NAME TO DESIRED DATA VISUALIZATION WITHOUT .CSV"""
 
 def all_results(filenames_unorganized, sample_num=50, audio_file=False, audio_format=False, save_figure=False, interpolate = True, y_axis_100=False):
     """
     Displays data formatted in scatterplot with spline and polynomial interpolated lines. 
     assumes:
-        -input list is in numerical order (Condition 1 data, condition 2 data,..., condition 6 data)
+        -data being observed contained in a csv file
         -input list is a list of str with filenames without the '.csv'
-        -Columns for analysis are labelled accordingly: 'walker.azimuth', 'response.responseScore', 'trial.congruent' (if congruency considered, eg. not conditions 1 or 6), 'sound.direction' (if audio_format=False)
+        -Columns for analysis are labelled accordingly: 'walker.azimuth', 'response.responseScore', 'trial.congruent' (if congruency considered, eg. not conditions 1 or 6), 'sound.direction' (if audio_format=False),'trial.condition'
     args:
-        filenames (list): list of .csv data files to visualize and analyze
+        filenames_unorganized (list of str): list of data files to visualize and analyze (without .csv)
         sample_num (int): Number of data points wanted to generate with interpolation. Default = 50
         audio_file (boolean): =True if audio file present within list of files
         audio_format (boolean): =True if audio file format works with format of other data, in other words, if the audio file has an azimuth column. Otherwise, formats audio only condition in bar graph.
@@ -474,13 +531,12 @@ def all_results(filenames_unorganized, sample_num=50, audio_file=False, audio_fo
 
             plt.show()
     
-            
 
 def audio_plots(data, save_figure):
     """
     Displays audio data formatted in bar graph format. (Direction vs. Percentage Answered Correct)
     args:
-        file (str): audio file to be formatted
+        data (df): dataframe to be formatted
         save_figure (boolean): =True if want to save figure to device
     """
     plt.title('Condition 6', fontsize=10)
@@ -522,61 +578,66 @@ def audio_plots(data, save_figure):
     
 """PLOTTING DATA"""
 
-"""Examples commented below"""
+"""EXAMPLES BELOW. BETWEEN '##########' LINES """
+
+##########
+
 # #Plotting data without audio file and 50 sample interpolation
 # #Good for plotting select files, single files, etc.
+
 # filenames = ['Sample_Condition1Data']
 # all_results(filenames, audio_file=False)
 
+##########
+
 # #plotting data with audio file but file is not formatted with azimuth and 100 sample interpolation
+
 # filenames = ['Sample_Condition1Data', 'Sample_Condition2Data', 'Sample_Condition3Data', 'Sample_Condition4Data','Sample_Condition5Data', 'Sample_Condition6Data']
 # all_results(filenames, sample_num=100, audio_file=True)
 
+##########
+
 # #plotting data with audio file but file is formatted with azimuth and 60 sample interpolation
+
 # filenames = ['Sample_Condition1Data', 'Sample_Condition2Data', 'Sample_Condition3Data', 'Sample_Condition4Data','Sample_Condition5Data', 'Sample_Condition6Data']
 # all_results(filenames, audio_file=True, audio_format=True)
 
+##########
+
 # #plotting data with audio file but file is formatted with azimuth and 100 sample interpolation
+
 # filenames = ['Sample_Condition1Data', 'Sample_Condition2Data', 'Sample_Condition3Data', 'Sample_Condition4Data','Sample_Condition5Data', 'Sample_Condition6Data']
 # all_results(filenames, sample_num=100, audio_file=True, audio_format=True)
 
+##########
+
 # #plotting data with formatted audio file but don't want to perform interpolations
+
 # filenames = ['Sample_Condition1Data', 'Sample_Condition2Data', 'Sample_Condition3Data', 'Sample_Condition4Data','Sample_Condition5Data', 'Sample_Condition6Data']
 # all_results(filenames, sample_num=100, audio_file=True, audio_format=True, interpolate=False)
 
+##########
+
 # #plotting data with formatted audio file but don't want to perform interpolations and want to see results on scale from 0% correct to 100% correct
+
 # filenames = ['Sample_Condition1Data', 'Sample_Condition2Data', 'Sample_Condition3Data', 'Sample_Condition4Data','Sample_Condition5Data', 'Sample_Condition6Data']
 # all_results(filenames, sample_num=100, audio_file=True, audio_format=True, interpolate=False, y_axis_100=True)
 
+##########
 
+# # Finding average of condition 4 across all india controls: 
+# # Can find average of any one condition
 
-"""my data plots"""
-
-# scramble_cc = ['1V_S1200_CC', '2AV_C_S_S1200_CC', '3AV_C_OS_S1200_CC', '4AV_I_S_S1200_CC', '5AV_I_OS_S1200_CC', '6A_S1200_CC']
-# inversion_sl = ['1V_I1200_SL', '2AV_C_S_I1200_SL', '3AV_C_OS_I1200_SL', '4AV_I_S_I1200_SL', '5AV_I_OS_I1200_SL', '6A_I1200_SL']
-# scramble_sl = ['1V_S1200_SL', '2AV_C_S_S1200_SL', '3AV_C_OS_S1200_SL', '4AV_I_S_S1200_SL', '5AV_I_OS_S1200_SL', '6A_S1200_SL']
-# inversion_llm =['2AV_C_S_I1200_LLM','3AV_C_OS_I1200_LLM', '4AV_I_S_I1200_LLM', '5AV_I_OS_I1200_LLM', '6A_I1200_LLM']
-# inversion_sl = ['1V_I1200_SL', '2AV_C_S_I1200_SL', '3AV_C_OS_I1200_SL', '4AV_I_S_I1200_SL', '5AV_I_OS_I1200_SL', '6A_I1200_SL']
+#First keep collection of data organized by patient:
 control_anshra = ['Anshra_Control_blur_1_run1', 'Anshra_Control_blur_1_run3', 'Anshra_Control_blur_2_run1', 'Anshra_Control_blur_2_run3', 'Anshra_Control_blur_3_run2', 'Anshra_Control_blur_3_run4', 'Anshra_Control_blur_4_run1', 'Anshra_Control_blur_4_run3', 'Anshra_Control_blur_5_run2', 'Anshra_Control_blur_5_run4', 'Anshra_Control_blur_6_run5']
 control_kushagra = ['Kushagra_control_blur_1_run1', 'Kushagra_control_blur_1_run3', 'Kushagra_control_blur_2_run1', 'Kushagra_control_blur_2_run3', 'Kushagra_control_blur_3_run2', 'Kushagra_control_blur_3_run4', 'Kushagra_control_blur_4_run1', 'Kushagra_control_blur_4_run3', 'Kushagra_control_blur_5_run2', 'Kushagra_control_blur_5_run4', 'Kushagra_control_blur_6_run5']
-# control_jl = ['1V_JL', '2AV_JL', '3A_JL']
-# control_sl = ['1V_SL', '2AV_SL', '3A_SL']
-# control_cc = ['1V_CC', '2AV_CC', '3A_CC']
 control_arushi = ['Arushi_C1', 'Arushi_C2', 'Arushi_C3', 'Arushi_C4', 'Arushi_C5', 'Arushi_C6']
 control_ritesh = ['ritesh_C!', 'ritesh_C2', 'ritesh_C3', 'ritesh_C4', 'ritesh_C5', 'ritesh_C6']
 control_uday = ['uday_C1', 'uday_C2', 'uday_C3', 'uday_C4', 'uday_C5', 'uday_C6']
 control_wasiya = ['wasiya_C1', 'wasiya_C2', 'wasiya_C3', 'wasiya_C4', 'wasiya_C5', 'wasiya_C6']
-# filenames14
-
-
-# s_patient = ['1V_Followup3_BM', '2AV_Followup3_BM', '3AV_Followup3_BM', '4AV_Followup3_BM', '5AV_Followup3_BM', '6A_Followup3_BM']
-# z_patient = ['Z_Condition1', 'Z_Condition2', 'Z_Condition3', 'Z_Condition4', 'Z_Condition5', 'Z_Condition6',]
-# k_patient = ['K_Condition1_run1', 'K_Condition1_run3', 'K_Condition2_run1', 'K_Condition2_run3', 'K_Condition3_run2', 'K_Condition3_run4', 'K_Condition4_run1', 'K_Condition4_run3', 'K_Condition5_run2', 'K_Condition5_run4', 'K_Condition6_run5']
 control_alshifa = ['Alshifa_Control_blur_1_run1', 'Alshifa_Control_blur_1_run3', 'Alshifa_Control_blur_2_run1', 'Alshifa_Control_blur_2_run3', 'Alshifa_Control_blur_3_run2', 'Alshifa_Control_blur_3_run4', 'Alshifa_Control_blur_4_run1', 'Alshifa_Control_blur_4_run3', 'Alshifa_Control_blur_5_run2', 'Alshifa_Control_blur_5_run4', 'Alshifa_Control_blur_6_run5',]
 
-
-# all_results(control_wasiya, audio_file=True, audio_format=True, interpolate=False, y_axis_100=True, save_figure=False)
-
+#Flatten data aka organize all files so there are at max 6 files to analyze (Necessary as these patients had multiple experiment runs)
 p1 = flatten_data(control_anshra) 
 p2 = flatten_data(control_kushagra) 
 p3 = flatten_data(control_arushi) 
@@ -585,6 +646,42 @@ p5 = flatten_data(control_uday)
 p6 = flatten_data(control_wasiya) 
 p7 = flatten_data(control_alshifa) 
 
+# [C1, C2, C3, C4, C5, C6]
+
+# Create list of patient names
 names = ['Anshra', 'Kushagra', 'Arushi', 'Ritesh', 'Uday', 'Wasiya', 'Alshifa']
 
-calc_av_multiple([[p1[0], p1[-1]], [p2[0], p2[-1]], [p3[0], p3[-1]], [p4[0], p4[-1]], [p5[0], p5[-1]], [p6[0], p6[-1]], [p7[0], p7[-1]]], names, save_figure=True)
+#Run calculations
+calc_average([[p1[5]], [p2[5]], [p3[5]], [p4[5]], [p5[5]], [p6[5]], [p7[5]]], 'C6', names, save_figure=True)
+
+##########
+
+# # Finding average of AV files across all india controls:
+
+#First keep collection of data organized by patient:
+# control_anshra = ['Anshra_Control_blur_1_run1', 'Anshra_Control_blur_1_run3', 'Anshra_Control_blur_2_run1', 'Anshra_Control_blur_2_run3', 'Anshra_Control_blur_3_run2', 'Anshra_Control_blur_3_run4', 'Anshra_Control_blur_4_run1', 'Anshra_Control_blur_4_run3', 'Anshra_Control_blur_5_run2', 'Anshra_Control_blur_5_run4', 'Anshra_Control_blur_6_run5']
+# control_kushagra = ['Kushagra_control_blur_1_run1', 'Kushagra_control_blur_1_run3', 'Kushagra_control_blur_2_run1', 'Kushagra_control_blur_2_run3', 'Kushagra_control_blur_3_run2', 'Kushagra_control_blur_3_run4', 'Kushagra_control_blur_4_run1', 'Kushagra_control_blur_4_run3', 'Kushagra_control_blur_5_run2', 'Kushagra_control_blur_5_run4', 'Kushagra_control_blur_6_run5']
+# control_arushi = ['Arushi_C1', 'Arushi_C2', 'Arushi_C3', 'Arushi_C4', 'Arushi_C5', 'Arushi_C6']
+# control_ritesh = ['ritesh_C!', 'ritesh_C2', 'ritesh_C3', 'ritesh_C4', 'ritesh_C5', 'ritesh_C6']
+# control_uday = ['uday_C1', 'uday_C2', 'uday_C3', 'uday_C4', 'uday_C5', 'uday_C6']
+# control_wasiya = ['wasiya_C1', 'wasiya_C2', 'wasiya_C3', 'wasiya_C4', 'wasiya_C5', 'wasiya_C6']
+# control_alshifa = ['Alshifa_Control_blur_1_run1', 'Alshifa_Control_blur_1_run3', 'Alshifa_Control_blur_2_run1', 'Alshifa_Control_blur_2_run3', 'Alshifa_Control_blur_3_run2', 'Alshifa_Control_blur_3_run4', 'Alshifa_Control_blur_4_run1', 'Alshifa_Control_blur_4_run3', 'Alshifa_Control_blur_5_run2', 'Alshifa_Control_blur_5_run4', 'Alshifa_Control_blur_6_run5',]
+
+#Flatten data aka organize all files so there are at max 6 files to analyze (Necessary as these patients had multiple experiment runs)
+# p1 = flatten_data(control_anshra) 
+# p2 = flatten_data(control_kushagra) 
+# p3 = flatten_data(control_arushi) 
+# p4 = flatten_data(control_ritesh) 
+# p5 = flatten_data(control_uday) 
+# p6 = flatten_data(control_wasiya) 
+# p7 = flatten_data(control_alshifa) 
+
+# Create list of patient names
+# names = ['Anshra', 'Kushagra', 'Arushi', 'Ritesh', 'Uday', 'Wasiya', 'Alshifa']
+
+#Run calculations
+# calc_av_multiple([[p1[0], p1[-1]], [p2[0], p2[-1]], [p3[0], p3[-1]], [p4[0], p4[-1]], [p5[0], p5[-1]], [p6[0], p6[-1]], [p7[0], p7[-1]]], names, save_figure=True)
+
+##########
+
+
